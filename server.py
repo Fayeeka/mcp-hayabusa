@@ -3,16 +3,20 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import yaml
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("hayabusa")
 
 HAYABUSA_PATH = Path(__file__).resolve().parent / "hayabusa" / "hayabusa.exe"
+RULES_DIR = HAYABUSA_PATH.parent / "rules"
 SEVERITY_LEVELS = ["informational", "low", "medium", "high", "critical"]
 SEVERITY_RANK = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
 OUTPUT_FORMATS = ["summary", "full"]
 SUMMARY_FIELDS = ["Timestamp", "RuleTitle", "Level", "Computer", "Channel", "EventID", "RecordID"]
 SCAN_TIMEOUT_SECONDS = 600
+
+_rules_cache: list[dict] | None = None
 
 
 @mcp.tool()
@@ -120,6 +124,71 @@ def scan_evtx(
         filtered = filtered[:max_results]
 
     return {"count": total_count, "returned": len(filtered), "findings": filtered}
+
+
+def _load_rules() -> list[dict]:
+    global _rules_cache
+    if _rules_cache is not None:
+        return _rules_cache
+
+    rules = []
+    for rule_path in list(RULES_DIR.rglob("*.yml")) + list(RULES_DIR.rglob("*.yaml")):
+        rel_parts = rule_path.relative_to(RULES_DIR).parts
+        if ".git" in rel_parts or rel_parts[0] == "config":
+            continue
+        try:
+            with open(rule_path, encoding="utf-8") as f:
+                data = yaml.load(f, Loader=yaml.CSafeLoader)
+        except yaml.YAMLError:
+            continue
+        if not isinstance(data, dict) or "title" not in data:
+            continue
+        rules.append({
+            "id": data.get("id", ""),
+            "title": data.get("title", ""),
+            "level": data.get("level", ""),
+            "status": data.get("status", ""),
+            "ruletype": data.get("ruletype", ""),
+            "category": (data.get("logsource") or {}).get("category", ""),
+            "tags": data.get("tags") or [],
+            "description": data.get("description") or "",
+        })
+
+    _rules_cache = rules
+    return rules
+
+
+@mcp.tool()
+def get_hayabusa_rules(keyword: str = "", max_results: int = 100) -> dict:
+    """List available Hayabusa detection rules, optionally filtered by keyword.
+
+    Args:
+        keyword: Only include rules whose title, description, category, or tags contain this substring (case-insensitive).
+        max_results: Maximum number of rules to return (0 for no limit).
+    """
+    if max_results < 0:
+        return {"error": f"Invalid max_results '{max_results}'. Must be 0 or a positive integer"}
+
+    if not RULES_DIR.is_dir():
+        return {"error": f"Rules directory not found at {RULES_DIR}."}
+
+    rules = _load_rules()
+
+    if keyword:
+        needle = keyword.lower()
+        rules = [
+            r for r in rules
+            if needle in r["title"].lower()
+            or needle in r["description"].lower()
+            or needle in r["category"].lower()
+            or any(needle in str(tag).lower() for tag in r["tags"])
+        ]
+
+    total_count = len(rules)
+    if max_results:
+        rules = rules[:max_results]
+
+    return {"count": total_count, "returned": len(rules), "rules": rules}
 
 
 def main() -> None:
