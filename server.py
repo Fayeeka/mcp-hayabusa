@@ -10,6 +10,7 @@ mcp = FastMCP("hayabusa")
 
 HAYABUSA_PATH = Path(__file__).resolve().parent / "hayabusa" / "hayabusa.exe"
 RULES_DIR = HAYABUSA_PATH.parent / "rules"
+SIGMA_RULES_DIR = Path(__file__).resolve().parent / "rules"
 SEVERITY_LEVELS = ["informational", "low", "medium", "high", "critical"]
 SEVERITY_RANK = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
 OUTPUT_FORMATS = ["summary", "full"]
@@ -17,6 +18,7 @@ SUMMARY_FIELDS = ["Timestamp", "RuleTitle", "Level", "Computer", "Channel", "Eve
 SCAN_TIMEOUT_SECONDS = 600
 
 _rules_cache: list[dict] | None = None
+_sigma_rules_cache: list[dict] | None = None
 
 
 @mcp.tool()
@@ -190,6 +192,88 @@ def get_hayabusa_rules(keyword: str = "", max_results: int = 100) -> dict:
         rules = rules[:max_results]
 
     return {"count": total_count, "returned": len(rules), "rules": rules}
+
+
+def _load_sigma_rules() -> list[dict]:
+    global _sigma_rules_cache
+    if _sigma_rules_cache is not None:
+        return _sigma_rules_cache
+
+    rules = []
+    for rule_path in sorted(SIGMA_RULES_DIR.glob("*.yml")) + sorted(SIGMA_RULES_DIR.glob("*.yaml")):
+        try:
+            with open(rule_path, encoding="utf-8") as f:
+                data = yaml.load(f, Loader=yaml.CSafeLoader)
+        except yaml.YAMLError:
+            continue
+        if not isinstance(data, dict) or "title" not in data:
+            continue
+
+        tags = data.get("tags") or []
+        techniques = sorted({
+            tag.split(".", 1)[1].upper()
+            for tag in tags
+            if isinstance(tag, str) and tag.lower().startswith("attack.t")
+        })
+
+        rules.append({
+            "name": rule_path.stem,
+            "path": rule_path,
+            "id": data.get("id", ""),
+            "title": data.get("title", ""),
+            "level": data.get("level", ""),
+            "status": data.get("status", ""),
+            "tags": tags,
+            "techniques": techniques,
+            "description": (data.get("description") or "").strip(),
+        })
+
+    _sigma_rules_cache = rules
+    return rules
+
+
+@mcp.resource(
+    "detection://rules",
+    name="Detection Rules",
+    description="Browse all Sigma detection rules",
+    mime_type="application/json",
+)
+def list_sigma_rules() -> str:
+    rules = _load_sigma_rules()
+    summary = [
+        {k: r[k] for k in ("name", "id", "title", "level", "status", "techniques")}
+        for r in rules
+    ]
+    return json.dumps(summary, indent=2)
+
+
+@mcp.resource(
+    "detection://rules/{rule_name}",
+    name="Sigma Rule",
+    description="Get a specific Sigma rule's raw YAML content",
+    mime_type="text/yaml",
+)
+def get_sigma_rule(rule_name: str) -> str:
+    for r in _load_sigma_rules():
+        if r["name"] == rule_name:
+            return r["path"].read_text(encoding="utf-8")
+    return f"Rule not found: {rule_name}"
+
+
+@mcp.resource(
+    "detection://rules/by-technique/{technique_id}",
+    name="Rules By Technique",
+    description="List Sigma rules that map to a given ATT&CK technique ID",
+    mime_type="application/json",
+)
+def get_rules_by_technique(technique_id: str) -> str:
+    needle = technique_id.upper()
+    matches = [
+        {k: r[k] for k in ("name", "id", "title", "level", "status", "techniques")}
+        for r in _load_sigma_rules()
+        if needle in r["techniques"]
+    ]
+    return json.dumps(matches, indent=2)
 
 
 def main() -> None:
