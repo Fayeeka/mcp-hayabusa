@@ -163,7 +163,7 @@ def get_hayabusa_rules(keyword: str = "", max_results: int = 100) -> dict:
     """List available Hayabusa detection rules, optionally filtered by keyword.
 
     Args:
-        keyword: Only include rules whose title, description, category, or tags contain this substring (case-insensitive).
+        keyword: Only include rules whose id, title, description, category, or tags contain this substring (case-insensitive).
         max_results: Maximum number of rules to return (0 for no limit).
     """
     if max_results < 0:
@@ -178,7 +178,8 @@ def get_hayabusa_rules(keyword: str = "", max_results: int = 100) -> dict:
         needle = keyword.lower()
         rules = [
             r for r in rules
-            if needle in r["title"].lower()
+            if needle in r["id"].lower()
+            or needle in r["title"].lower()
             or needle in r["description"].lower()
             or needle in r["category"].lower()
             or any(needle in str(tag).lower() for tag in r["tags"])
