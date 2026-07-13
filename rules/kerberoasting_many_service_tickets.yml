@@ -1,0 +1,28 @@
+title: Kerberoasting - High Volume of TGS Ticket Requests from Single Source
+id: 2e6f4a8c-9b1d-4c5e-a7f3-8d2c6e4b1a33
+status: experimental
+description: |
+    Detects a single account requesting an abnormally high number of
+    Kerberos service tickets (event ID 4769) in a short time window,
+    consistent with tools like Rubeus or GetUserSPNs.py enumerating and
+    roasting all SPNs in a domain.
+references:
+    - https://attack.mitre.org/techniques/T1558/003/
+    - https://github.com/GhostPack/Rubeus
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.credential-access
+    - attack.t1558.003
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4769
+    timeframe: 5m
+    condition: selection | count(ServiceName) by IpAddress > 15
+falsepositives:
+    - Batch jobs, backup software, or scanners that legitimately enumerate many services
+    - Domain controllers replicating or servicing large numbers of clients
+level: medium

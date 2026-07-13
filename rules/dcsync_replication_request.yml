@@ -1,0 +1,32 @@
+title: DCSync - Directory Replication Request from Non-DC Source
+id: 5b8d1a3f-7c4e-4b9a-9d6f-3e5a7c9b2d44
+status: experimental
+description: |
+    Detects Active Directory replication requests (DS-Replication-Get-Changes
+    / DS-Replication-Get-Changes-All) originating from a source that is not
+    a known Domain Controller. This is the core technique behind DCSync,
+    used to extract password hashes for any account, including krbtgt.
+references:
+    - https://attack.mitre.org/techniques/T1003/006/
+    - https://adsecurity.org/?p=1729
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.credential-access
+    - attack.t1003.006
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4662
+        Properties|contains:
+            - '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'  # DS-Replication-Get-Changes
+            - '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'  # DS-Replication-Get-Changes-All
+    filter_known_dcs:
+        SubjectUserName|endswith: '$'
+    condition: selection and not filter_known_dcs
+falsepositives:
+    - Legitimate Domain Controllers and Azure AD Connect / Entra Connect servers performing replication
+    - Backup or directory-sync solutions with delegated replication rights
+level: critical

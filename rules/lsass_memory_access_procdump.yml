@@ -1,0 +1,37 @@
+title: LSASS Memory Dump via ProcDump or Task Manager
+id: 4f8f5f0a-1c2b-4a3d-9e7a-2b5f6c8d9e10
+status: experimental
+description: |
+    Detects processes accessing LSASS memory with access rights commonly
+    associated with credential dumping tools (e.g. ProcDump, comsvcs.dll
+    MiniDump, or manual Task Manager dumps).
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+    - https://learn.microsoft.com/en-us/sysinternals/downloads/procdump
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.credential-access
+    - attack.t1003.001
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection_target:
+        TargetImage|endswith: '\lsass.exe'
+    selection_access:
+        GrantedAccess:
+            - '0x1010'
+            - '0x1410'
+            - '0x1438'
+            - '0x143a'
+            - '0x1fffff'
+    filter_known_edr:
+        SourceImage|startswith:
+            - 'C:\Program Files\Windows Defender\'
+            - 'C:\Program Files\Microsoft Monitoring Agent\'
+    condition: selection_target and selection_access and not filter_known_edr
+falsepositives:
+    - Legitimate crash dump / troubleshooting tools run by administrators
+    - EDR or antivirus agents inspecting LSASS memory
+level: high

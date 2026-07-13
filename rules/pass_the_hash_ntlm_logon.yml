@@ -1,0 +1,34 @@
+title: Pass-the-Hash - NTLM Logon with Suspicious Logon Type
+id: 8d4f2b6a-1e9c-4a7d-b3f5-6c8a2e4d9f55
+status: experimental
+description: |
+    Detects NTLM network logons (Logon Type 3) that carry indicators
+    commonly associated with Pass-the-Hash attacks, such as a mismatched
+    or empty workstation name paired with an authentication package of
+    NTLM, without an accompanying Kerberos pre-authentication event.
+references:
+    - https://attack.mitre.org/techniques/T1550/002/
+    - https://www.microsoft.com/en-us/download/details.aspx?id=36036
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.lateral-movement
+    - attack.defense-evasion
+    - attack.t1550.002
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4624
+        LogonType: 3
+        AuthenticationPackageName: 'NTLM'
+    filter_empty_workstation:
+        WorkstationName: ''
+    filter_localhost:
+        WorkstationName: '-'
+    condition: selection and (filter_empty_workstation or filter_localhost)
+falsepositives:
+    - Legacy applications or scripts using NTLM authentication by design
+    - Some load balancers or proxies that strip workstation name headers
+level: high
