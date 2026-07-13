@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -16,6 +17,7 @@ SEVERITY_RANK = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
 OUTPUT_FORMATS = ["summary", "full"]
 SUMMARY_FIELDS = ["Timestamp", "RuleTitle", "Level", "Computer", "Channel", "EventID", "RecordID"]
 SCAN_TIMEOUT_SECONDS = 600
+TECHNIQUE_ID_RE = re.compile(r"^t?(\d{4})(\.\d{3})?$", re.IGNORECASE)
 
 _rules_cache: list[dict] | None = None
 _sigma_rules_cache: list[dict] | None = None
@@ -274,6 +276,148 @@ def get_rules_by_technique(technique_id: str) -> str:
         if needle in r["techniques"]
     ]
     return json.dumps(matches, indent=2)
+
+
+RULE_SOURCES = ["custom", "upstream", "combined"]
+
+
+def _rule_label(rule: dict) -> str:
+    return rule.get("name") or rule.get("id") or rule.get("title") or ""
+
+
+def _rule_techniques(rule: dict) -> list[str]:
+    if "techniques" in rule:
+        return rule["techniques"]
+    return sorted({
+        tag.split(".", 1)[1].upper()
+        for tag in rule.get("tags") or []
+        if isinstance(tag, str) and tag.lower().startswith("attack.t")
+    })
+
+
+@mcp.tool()
+def analyze_coverage(technique_or_tactic: str, rule_source: str = "custom") -> dict:
+    """Report detection coverage for an ATT&CK technique ID or tactic name.
+
+    Compares a set of "our" rules against the broader Hayabusa/Sigma rule
+    corpus (used as the reference universe of known techniques). For a
+    technique ID, reports whether "our" rules cover it. For a tactic name,
+    builds the set of techniques the corpus has detections for, then reports
+    which of those are covered vs. gaps.
+
+    Args:
+        technique_or_tactic: An ATT&CK technique ID (e.g. "T1003.001" or
+            "T1003"), or a tactic name (e.g. "credential-access",
+            "Lateral Movement").
+        rule_source: Which rules count as "ours" for the coverage check:
+            "custom" (default) - only our own rules in rules/;
+            "upstream" - the full bundled Hayabusa/Sigma corpus itself,
+                i.e. what coverage looks like if that corpus is your
+                detection layer;
+            "combined" - custom rules plus the upstream corpus.
+    """
+    value = technique_or_tactic.strip()
+    if not value:
+        return {"error": "technique_or_tactic must not be empty"}
+
+    if rule_source not in RULE_SOURCES:
+        return {"error": f"Invalid rule_source '{rule_source}'. Must be one of {RULE_SOURCES}"}
+
+    if not RULES_DIR.is_dir():
+        return {"error": f"Rules directory not found at {RULES_DIR}."}
+
+    reference_rules = _load_rules()
+    if rule_source == "custom":
+        our_rules = _load_sigma_rules()
+    elif rule_source == "upstream":
+        our_rules = reference_rules
+    else:
+        our_rules = _load_sigma_rules() + reference_rules
+
+    match = TECHNIQUE_ID_RE.match(value)
+    if match:
+        technique_id = value.upper()
+        if not technique_id.startswith("T"):
+            technique_id = "T" + technique_id
+
+        our_matches = [r for r in our_rules if technique_id in _rule_techniques(r)]
+        needle = f"attack.{technique_id.lower()}"
+        ref_matches = [
+            r for r in reference_rules
+            if any(isinstance(t, str) and t.lower() == needle for t in r["tags"])
+        ]
+
+        return {
+            "query_type": "technique",
+            "technique_id": technique_id,
+            "rule_source": rule_source,
+            "covered": bool(our_matches),
+            "gap": not our_matches and bool(ref_matches),
+            "our_rules": [
+                {"name": _rule_label(r), "title": r["title"], "level": r["level"]}
+                for r in our_matches
+            ],
+            "reference_rule_count": len(ref_matches),
+            "reference_rules_sample": [
+                {"title": r["title"], "level": r["level"], "category": r["category"]}
+                for r in ref_matches[:10]
+            ],
+        }
+
+    tactic = value.lower().replace(" ", "-").replace("_", "-")
+
+    universe: dict[str, set[str]] = {}
+    for r in reference_rules:
+        tags_lower = {t.lower() for t in r["tags"] if isinstance(t, str)}
+        if f"attack.{tactic}" not in tags_lower:
+            continue
+        for tag in r["tags"]:
+            if isinstance(tag, str) and tag.lower().startswith("attack.t"):
+                universe.setdefault(tag.split(".", 1)[1].upper(), set()).add(r["title"])
+
+    if not universe:
+        return {
+            "query_type": "tactic",
+            "tactic": tactic,
+            "error": (
+                f"No rules found tagged with tactic '{tactic}'. Check spelling, "
+                "e.g. 'credential-access', 'lateral-movement', 'privilege-escalation'."
+            ),
+        }
+
+    our_technique_index: dict[str, list[dict]] = {}
+    for r in our_rules:
+        for technique in _rule_techniques(r):
+            our_technique_index.setdefault(technique, []).append(r)
+
+    covered, gaps = [], []
+    for technique_id, ref_titles in universe.items():
+        our_matches = our_technique_index.get(technique_id, [])
+        entry = {"technique_id": technique_id, "reference_rule_count": len(ref_titles)}
+        if our_matches:
+            entry["our_rules"] = [
+                {"name": _rule_label(r), "title": r["title"], "level": r["level"]}
+                for r in our_matches
+            ]
+            covered.append(entry)
+        else:
+            gaps.append(entry)
+
+    covered.sort(key=lambda e: e["technique_id"])
+    gaps.sort(key=lambda e: e["reference_rule_count"], reverse=True)
+
+    total = len(universe)
+    return {
+        "query_type": "tactic",
+        "tactic": tactic,
+        "rule_source": rule_source,
+        "techniques_in_scope": total,
+        "covered_count": len(covered),
+        "gap_count": len(gaps),
+        "coverage_pct": round(100 * len(covered) / total, 1) if total else 0.0,
+        "covered": covered,
+        "gaps": gaps,
+    }
 
 
 def main() -> None:
