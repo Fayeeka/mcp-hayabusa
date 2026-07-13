@@ -10,19 +10,36 @@ mcp = FastMCP("hayabusa")
 HAYABUSA_PATH = Path(__file__).resolve().parent / "hayabusa" / "hayabusa.exe"
 SEVERITY_LEVELS = ["informational", "low", "medium", "high", "critical"]
 SEVERITY_RANK = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
+OUTPUT_FORMATS = ["summary", "full"]
+SUMMARY_FIELDS = ["Timestamp", "RuleTitle", "Level", "Computer", "Channel", "EventID", "RecordID"]
 SCAN_TIMEOUT_SECONDS = 600
 
 
 @mcp.tool()
-def scan_evtx(path: str, min_severity: str = "informational") -> dict:
+def scan_evtx(
+    path: str,
+    min_severity: str = "informational",
+    rule_filter: str = "",
+    output_format: str = "summary",
+    max_results: int = 0,
+) -> dict:
     """Run Hayabusa against an EVTX file and return structured findings.
 
     Args:
         path: Path to the EVTX file to scan.
         min_severity: Minimum severity level to include (informational, low, medium, high, critical).
+        rule_filter: Only include findings whose rule title contains this substring (case-insensitive).
+        output_format: "summary" for condensed fields (default), or "full" for all details.
+        max_results: Maximum number of findings to return (0 for no limit).
     """
     if min_severity not in SEVERITY_RANK:
         return {"error": f"Invalid min_severity '{min_severity}'. Must be one of {SEVERITY_LEVELS}"}
+
+    if output_format not in OUTPUT_FORMATS:
+        return {"error": f"Invalid output_format '{output_format}'. Must be one of {OUTPUT_FORMATS}"}
+
+    if max_results < 0:
+        return {"error": f"Invalid max_results '{max_results}'. Must be 0 or a positive integer"}
 
     evtx_path = Path(path)
     if not evtx_path.is_file():
@@ -91,7 +108,18 @@ def scan_evtx(path: str, min_severity: str = "informational") -> dict:
         if SEVERITY_RANK.get(str(f.get("Level", "informational")).lower(), 0) >= min_rank
     ]
 
-    return {"count": len(filtered), "findings": filtered}
+    if rule_filter:
+        needle = rule_filter.lower()
+        filtered = [f for f in filtered if needle in str(f.get("RuleTitle", "")).lower()]
+
+    if output_format == "summary":
+        filtered = [{k: f.get(k) for k in SUMMARY_FIELDS} for f in filtered]
+
+    total_count = len(filtered)
+    if max_results:
+        filtered = filtered[:max_results]
+
+    return {"count": total_count, "returned": len(filtered), "findings": filtered}
 
 
 def main() -> None:
