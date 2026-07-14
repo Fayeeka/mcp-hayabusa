@@ -6,6 +6,12 @@ description: |
     commonly associated with Pass-the-Hash attacks, such as a mismatched
     or empty workstation name paired with an authentication package of
     NTLM, without an accompanying Kerberos pre-authentication event.
+
+    Severity is high, not critical: an empty/spoofed workstation name on
+    an NTLM network logon is consistent with lateral movement via a
+    stolen hash, but some legacy applications and proxies also strip the
+    workstation name, so this needs confirmation before treating it as a
+    confirmed compromise.
 references:
     - https://attack.mitre.org/techniques/T1550/002/
     - https://www.microsoft.com/en-us/download/details.aspx?id=36036
@@ -18,6 +24,10 @@ tags:
 logsource:
     product: windows
     service: security
+# Test case:
+#   EventID 4624 LogonType=3 AuthenticationPackageName=NTLM
+#   WorkstationName='' (e.g. from Impacket wmiexec.py authenticating
+#   with a stolen NTLM hash instead of a plaintext password)
 detection:
     selection:
         EventID: 4624

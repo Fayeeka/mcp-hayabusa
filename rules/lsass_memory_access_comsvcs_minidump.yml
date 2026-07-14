@@ -5,6 +5,12 @@ description: |
     Detects the well-known "living off the land" technique of using
     rundll32.exe with comsvcs.dll's MiniDump export to dump the LSASS
     process without dropping an external tool on disk.
+
+    Severity is critical: a successful MiniDump of lsass.exe yields
+    every logged-on user's credential material (including cached
+    domain hashes) in a single step, using a signed OS binary with no
+    external tooling — there is effectively no benign reason for this
+    exact invocation to occur.
 references:
     - https://attack.mitre.org/techniques/T1003/001/
     - https://web.archive.org/web/20200709154238/https://twitter.com/SBousseaden/status/1276661852134025216
@@ -16,6 +22,8 @@ tags:
 logsource:
     category: process_creation
     product: windows
+# Test case:
+#   rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump 624 C:\Windows\Temp\lsass.dmp full
 detection:
     selection_image:
         Image|endswith: '\rundll32.exe'

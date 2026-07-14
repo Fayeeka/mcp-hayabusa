@@ -7,6 +7,11 @@ description: |
     modern clients default to AES. Attackers frequently downgrade the
     encryption type to enable offline cracking of the service account
     password.
+
+    Severity is medium, not high/critical: RC4 downgrade is a strong
+    indicator but legacy applications or misconfigured accounts without
+    AES support can trigger this too, so it needs triage to confirm
+    intent before treating it as confirmed roasting activity.
 references:
     - https://attack.mitre.org/techniques/T1558/003/
     - https://adsecurity.org/?p=2293
@@ -18,6 +23,10 @@ tags:
 logsource:
     product: windows
     service: security
+# Test case:
+#   Rubeus.exe kerberoast /outfile:hashes.txt requesting a TGS for a
+#   non-machine, non-krbtgt ServiceName (e.g. svc_sql) with EventID 4769
+#   TicketEncryptionType=0x17
 detection:
     selection:
         EventID: 4769

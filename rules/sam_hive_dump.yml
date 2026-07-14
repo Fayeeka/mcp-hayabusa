@@ -8,6 +8,12 @@ description: |
     extraction). Covers reg.exe save of the live hives, esentutl copying
     them out of a Volume Shadow Copy, and direct file access to a hive
     through a shadow copy device path.
+
+    Severity is high, not critical: unlike DCSync/NTDS, SAM hashes are
+    scoped to local accounts on the host, not the whole domain — still a
+    strong precursor to lateral movement (especially with reused local
+    admin passwords) but bounded in blast radius unless combined with
+    password reuse elsewhere.
 references:
     - https://attack.mitre.org/techniques/T1003/002/
 author: Detection Engineering Team
@@ -18,6 +24,10 @@ tags:
 logsource:
     category: process_creation
     product: windows
+# Test case:
+#   reg.exe save hklm\sam C:\Windows\Temp\sam.hive
+#   (Image=...\reg.exe, CommandLine contains 'save' and 'hklm\sam',
+#   Image not under a known backup tool install path)
 detection:
     selection_reg_save_action:
         Image|endswith: '\reg.exe'

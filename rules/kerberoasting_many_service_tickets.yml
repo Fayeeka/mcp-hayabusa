@@ -6,6 +6,11 @@ description: |
     Kerberos service tickets (event ID 4769) in a short time window,
     consistent with tools like Rubeus or GetUserSPNs.py enumerating and
     roasting all SPNs in a domain.
+
+    Severity is medium, not high/critical: the volume threshold is a
+    strong behavioral signal but batch jobs, backup software, and
+    scanners can legitimately generate similar bursts, so this needs
+    human triage rather than automatic escalation.
 references:
     - https://attack.mitre.org/techniques/T1558/003/
     - https://github.com/GhostPack/Rubeus
@@ -17,6 +22,10 @@ tags:
 logsource:
     product: windows
     service: security
+# Test case:
+#   Single source IP generates >15 EventID 4769 requests for distinct
+#   ServiceName values within a 5 minute window, e.g. running
+#   GetUserSPNs.py domain/user -request against all SPNs in the domain
 detection:
     selection:
         EventID: 4769

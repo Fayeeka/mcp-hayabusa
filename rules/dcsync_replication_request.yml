@@ -6,6 +6,11 @@ description: |
     / DS-Replication-Get-Changes-All) originating from a source that is not
     a known Domain Controller. This is the core technique behind DCSync,
     used to extract password hashes for any account, including krbtgt.
+
+    Severity is critical: a successful DCSync yields domain-wide credential
+    material including the krbtgt hash, enabling golden ticket forgery —
+    this is equivalent to full domain compromise, not a single-account
+    exposure.
 references:
     - https://attack.mitre.org/techniques/T1003/006/
     - https://adsecurity.org/?p=1729
@@ -17,6 +22,10 @@ tags:
 logsource:
     product: windows
     service: security
+# Test case:
+#   EventID 4662 with SubjectUserName=CORP\attacker_svc (no trailing $) and
+#   Properties containing GUID 1131f6aa-9c07-11d1-f79f-00c04fc2dcd2
+#   (DS-Replication-Get-Changes), e.g. from mimikatz "lsadump::dcsync"
 detection:
     selection:
         EventID: 4662

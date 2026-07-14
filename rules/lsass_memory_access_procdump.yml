@@ -5,6 +5,12 @@ description: |
     Detects processes accessing LSASS memory with access rights commonly
     associated with credential dumping tools (e.g. ProcDump, comsvcs.dll
     MiniDump, or manual Task Manager dumps).
+
+    Severity is high, not critical: the GrantedAccess values indicate
+    full/near-full memory read access to LSASS, a strong precursor to
+    credential extraction, but EDR and antivirus agents can request
+    similar access rights legitimately (the known-EDR filter covers the
+    common cases, not all of them).
 references:
     - https://attack.mitre.org/techniques/T1003/001/
     - https://learn.microsoft.com/en-us/sysinternals/downloads/procdump
@@ -16,6 +22,10 @@ tags:
 logsource:
     category: process_access
     product: windows
+# Test case:
+#   procdump64.exe -accepteula -ma lsass.exe C:\Windows\Temp\lsass.dmp
+#   (TargetImage=...\lsass.exe, GrantedAccess=0x1fffff, SourceImage not
+#   under a known EDR install path)
 detection:
     selection_target:
         TargetImage|endswith: '\lsass.exe'
