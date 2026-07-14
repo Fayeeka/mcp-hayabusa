@@ -272,3 +272,36 @@ detection://investigations/by-technique/{tid} - Cases involving a technique
 ```
 
 Claude can reference how similar incidents were handled before.
+
+## Module 4 Wrap-Up Summary
+
+Built a detection-engineering knowledge base on top of the Module 3
+Hayabusa MCP server:
+- 6 custom Sigma rules (LSASS, Kerberoasting x2, DCSync, Pass-the-Hash,
+  plus a real SAM hive dump rule built via suggest_rule)
+- Three MCP resources: detection://rules, detection://rules/{rule_name},
+  detection://rules/by-technique/{technique_id}
+- Two new tools: analyze_coverage (gap analysis vs. upstream Hayabusa
+  corpus, with custom/upstream/combined modes) and suggest_rule
+  (data-driven detection suggestions + real, Hayabusa-validated rule
+  templates)
+- Confirmed the full loop works: found a real gap (T1003.002, 3% custom
+  coverage), generated a working draft, fleshed it into a real tested
+  rule, re-ran analysis to confirm coverage improved (3.0% → 4.0%)
+
+Key lesson: Resources = read-only knowledge Claude can browse (URIs).
+Tools = actions with side effects. The real power is combining them —
+Claude reasons over real data (never hallucinating rule content) and
+uses tools to act on what it finds.
+
+**Real-world extension patterns (not built, but the same approach applies):**
+- Playbook library (detection://playbooks/...) — IR procedures Claude
+  can reference during investigations
+- Environment context (detection://environment/...) — host/service/
+  baseline data so Claude's analysis is specific to your environment
+- Historical investigations (detection://investigations/...) —
+  institutional memory of past incidents
+
+**Rule of thumb:** if you're repeatedly re-explaining the same background
+context to Claude across conversations, that's a signal it belongs as a
+Resource, not something re-typed each time.
