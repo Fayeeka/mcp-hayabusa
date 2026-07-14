@@ -1,0 +1,47 @@
+title: Pass-the-Ticket - Kerberos Ticket Injection via Mimikatz or Rubeus
+id: 6f1a8c4e-2b5d-4e9a-8c7f-3d6b9e1a4f52
+status: experimental
+description: |
+    Detects command lines associated with injecting a stolen Kerberos
+    ticket (TGT or TGS) into a logon session, using Mimikatz's
+    `kerberos::ptt` module or Rubeus's `ptt` action. A successful
+    injection lets the attacker impersonate the ticket's owner and
+    move laterally or access resources without ever supplying a
+    password or hash.
+
+    Severity is critical: these command-line strings are specific to
+    known offensive tooling with no legitimate day-to-day use, and a
+    successful injection grants immediate, ready-to-use access as the
+    compromised principal - the credential theft (export/harvest) has
+    already happened by the time this fires, so this is the last
+    detectable step before active abuse of the ticket.
+references:
+    - https://attack.mitre.org/techniques/T1550/003/
+    - https://github.com/GhostPack/Rubeus
+    - https://adsecurity.org/?p=1122
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.lateral-movement
+    - attack.defense-evasion
+    - attack.t1550.003
+logsource:
+    category: process_creation
+    product: windows
+# Test case:
+#   mimikatz.exe "kerberos::ptt C:\tickets\administrator.kirbi"
+#   Rubeus.exe ptt /ticket:doIFvjCCBYqgAwIBBaEDAgEWooIE...
+detection:
+    selection_mimikatz:
+        CommandLine|contains: 'kerberos::ptt'
+    selection_rubeus:
+        CommandLine|contains|all:
+            - 'ptt'
+            - '/ticket:'
+    condition: selection_mimikatz or selection_rubeus
+falsepositives:
+    - Authorized red team or penetration testing engagements using
+      Mimikatz or Rubeus for adversary emulation
+    - Detection engineers or researchers exercising ticket injection
+      in a lab environment while validating this rule
+level: critical
