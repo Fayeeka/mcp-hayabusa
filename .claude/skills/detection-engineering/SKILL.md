@@ -93,3 +93,18 @@ Before treating a rule as finished, confirm:
 
 If a rule is missing any of these, say so explicitly and fix it rather
 than treating it as done.
+
+## Validation
+
+After creating or modifying a rule, validate it:
+
+```
+python .claude/skills/detection-engineering/scripts/validate-rule.py path/to/rule.yml
+```
+
+This checks the ATT&CK technique tag, severity level, false positives
+section, and test case comment programmatically, and prints a JSON
+report. Exit code is 0 if the rule passes every check, 1 if any check
+fails, 2 on a usage or parse error. It does not check the severity
+*justification* prose or the tactic tag — use the checklist above for
+those.
