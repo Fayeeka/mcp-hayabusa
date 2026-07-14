@@ -2,6 +2,9 @@ import json
 import re
 import subprocess
 import tempfile
+import uuid
+from collections import Counter
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -154,8 +157,10 @@ def _load_rules() -> list[dict]:
             "status": data.get("status", ""),
             "ruletype": data.get("ruletype", ""),
             "category": (data.get("logsource") or {}).get("category", ""),
+            "logsource": data.get("logsource") or {},
             "tags": data.get("tags") or [],
             "description": data.get("description") or "",
+            "path": rule_path,
         })
 
     _rules_cache = rules
@@ -192,6 +197,9 @@ def get_hayabusa_rules(keyword: str = "", max_results: int = 100) -> dict:
     total_count = len(rules)
     if max_results:
         rules = rules[:max_results]
+
+    public_fields = ("id", "title", "level", "status", "ruletype", "category", "tags", "description")
+    rules = [{k: r[k] for k in public_fields} for r in rules]
 
     return {"count": total_count, "returned": len(rules), "rules": rules}
 
@@ -295,6 +303,17 @@ def _rule_techniques(rule: dict) -> list[str]:
     })
 
 
+def _normalize_technique_id(value: str) -> str | None:
+    if not TECHNIQUE_ID_RE.match(value):
+        return None
+    technique_id = value.upper()
+    return technique_id if technique_id.startswith("T") else "T" + technique_id
+
+
+def _technique_mitre_url(technique_id: str) -> str:
+    return "https://attack.mitre.org/techniques/" + technique_id[1:].replace(".", "/") + "/"
+
+
 @mcp.tool()
 def analyze_coverage(technique_or_tactic: str, rule_source: str = "custom") -> dict:
     """Report detection coverage for an ATT&CK technique ID or tactic name.
@@ -334,12 +353,8 @@ def analyze_coverage(technique_or_tactic: str, rule_source: str = "custom") -> d
     else:
         our_rules = _load_sigma_rules() + reference_rules
 
-    match = TECHNIQUE_ID_RE.match(value)
-    if match:
-        technique_id = value.upper()
-        if not technique_id.startswith("T"):
-            technique_id = "T" + technique_id
-
+    technique_id = _normalize_technique_id(value)
+    if technique_id:
         our_matches = [r for r in our_rules if technique_id in _rule_techniques(r)]
         needle = f"attack.{technique_id.lower()}"
         ref_matches = [
@@ -418,6 +433,152 @@ def analyze_coverage(technique_or_tactic: str, rule_source: str = "custom") -> d
         "covered": covered,
         "gaps": gaps,
     }
+
+
+@mcp.tool()
+def suggest_rule(technique_id: str, create_template: bool = False) -> dict:
+    """Check coverage for an ATT&CK technique and suggest a detection if missing.
+
+    Checks whether our own Sigma rules (rules/, exposed via the detection://
+    resources) already cover the technique. If not, derives a suggested
+    detection approach from how the broader Hayabusa/Sigma corpus detects it
+    (typical log source category, severity, and example rules), and
+    optionally writes a starter rule template into rules/.
+
+    Args:
+        technique_id: An ATT&CK technique ID, e.g. "T1003.002" or "1003.002".
+        create_template: If True and we don't already have coverage, write a
+            draft Sigma rule YAML file into rules/. Will not overwrite an
+            existing file.
+    """
+    tid = _normalize_technique_id(technique_id.strip())
+    if not tid:
+        return {"error": f"'{technique_id}' doesn't look like an ATT&CK technique ID, e.g. 'T1003.002'"}
+
+    if not RULES_DIR.is_dir():
+        return {"error": f"Rules directory not found at {RULES_DIR}."}
+
+    our_rules = _load_sigma_rules()
+    our_matches = [r for r in our_rules if tid in r["techniques"]]
+
+    if our_matches:
+        return {
+            "technique_id": tid,
+            "covered": True,
+            "our_rules": [
+                {"name": r["name"], "title": r["title"], "level": r["level"]}
+                for r in our_matches
+            ],
+            "message": "Already covered by our own rules; no suggestion needed.",
+        }
+
+    reference_rules = _load_rules()
+    needle = f"attack.{tid.lower()}"
+    ref_matches = [
+        r for r in reference_rules
+        if any(isinstance(t, str) and t.lower() == needle for t in r["tags"])
+    ]
+
+    if not ref_matches:
+        return {
+            "technique_id": tid,
+            "covered": False,
+            "reference_rule_count": 0,
+            "suggested_approach": (
+                f"No rules in our own set or the bundled Hayabusa/Sigma corpus tag {tid}. "
+                f"Research the technique at {_technique_mitre_url(tid)} to identify a log "
+                "source and detection idea before writing a rule."
+            ),
+            "template_created": False,
+        }
+
+    categories = Counter(r["category"] for r in ref_matches if r["category"])
+    levels = Counter(r["level"] for r in ref_matches if r["level"])
+    tactics = Counter(
+        tag.split(".", 1)[1].lower()
+        for r in ref_matches
+        for tag in r["tags"]
+        if isinstance(tag, str) and tag.lower().startswith("attack.")
+        and not TECHNIQUE_ID_RE.match(tag.split(".", 1)[1])
+    )
+
+    top_category = categories.most_common(1)[0][0] if categories else None
+    top_level = levels.most_common(1)[0][0] if levels else "medium"
+    top_tactic = tactics.most_common(1)[0][0] if tactics else None
+
+    sample = sorted(ref_matches, key=lambda r: SEVERITY_RANK.get(r["level"], 0), reverse=True)[:5]
+
+    approach_lines = [f"{len(ref_matches)} rule(s) in the upstream Hayabusa/Sigma corpus detect {tid}."]
+    if top_category:
+        approach_lines.append(f"Most common log source category: '{top_category}'.")
+    if top_tactic:
+        approach_lines.append(f"Most commonly tagged tactic: '{top_tactic}'.")
+    approach_lines.append(f"Typical severity: '{top_level}'.")
+    approach_lines.append("Similar existing detections:")
+    approach_lines += [
+        f"  - {r['title']} ({r['level']}, category={r['category'] or 'n/a'})" for r in sample
+    ]
+
+    result = {
+        "technique_id": tid,
+        "covered": False,
+        "reference_rule_count": len(ref_matches),
+        "suggested_category": top_category,
+        "suggested_level": top_level,
+        "suggested_tactic": top_tactic,
+        "reference_rules_sample": [
+            {"title": r["title"], "level": r["level"], "category": r["category"]}
+            for r in sample
+        ],
+        "suggested_approach": "\n".join(approach_lines),
+        "template_created": False,
+    }
+
+    if create_template:
+        target_path = SIGMA_RULES_DIR / f"{tid.lower().replace('.', '_')}_draft.yml"
+        if target_path.exists():
+            result["template_error"] = f"Template already exists at {target_path}, not overwriting."
+            return result
+
+        tactic_tag_line = f"    - attack.{top_tactic}\n" if top_tactic else ""
+        reference_titles = "\n".join(f"#   - {r['title']} ({r['level']})" for r in sample)
+
+        template = f"""title: Draft - {tid} Detection
+id: {uuid.uuid4()}
+status: experimental
+description: |
+    DRAFT rule generated by suggest_rule for {tid}. The selection below is a
+    placeholder (EventID: 0 never fires) - replace it with real field/value
+    matches before enabling this rule.
+# Reference rules consulted from the upstream Hayabusa/Sigma corpus:
+{reference_titles}
+references:
+    - {_technique_mitre_url(tid)}
+author: Detection Engineering Team (draft - review before enabling)
+date: {date.today().isoformat()}
+tags:
+{tactic_tag_line}    - attack.{tid.lower()}
+logsource:
+    product: windows
+    category: {top_category or "TODO: set logsource category, e.g. process_creation"}
+detection:
+    selection:
+        # TODO: replace with real selection logic
+        EventID: 0
+    condition: selection
+falsepositives:
+    - Unknown - refine after testing
+level: {top_level}
+"""
+        target_path.write_text(template, encoding="utf-8")
+
+        global _sigma_rules_cache
+        _sigma_rules_cache = None
+
+        result["template_created"] = True
+        result["template_path"] = str(target_path)
+
+    return result
 
 
 def main() -> None:
