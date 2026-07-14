@@ -1,0 +1,46 @@
+# This is a REFERENCE EXAMPLE demonstrating properly formatted Sigma
+# rule per this project's detection-engineering standards. It is not
+# deployed from rules/ — see rules/lsass_memory_access_comsvcs_minidump.yml
+# and rules/lsass_memory_access_procdump.yml for the actual production
+# rules covering this technique.
+title: LSASS Memory Dump via Task Manager
+id: 3c7e9a2d-5f1b-4d8e-9a6c-2b7d4f8e1c93
+status: experimental
+description: |
+    Detects a full memory dump of lsass.exe being written to disk by
+    Task Manager's "Create dump file" feature. This produces a .DMP
+    file (by default named lsass.DMP under a per-user temp directory)
+    that can be exfiltrated and processed offline with Mimikatz or
+    similar tools to extract credentials.
+
+    Severity is critical: a Task Manager dump of lsass.exe is a full
+    memory dump equivalent to comsvcs.dll MiniDump or ProcDump — it
+    exposes every logged-on user's credential material in one file,
+    and there is essentially no routine reason to dump this specific
+    process by name.
+references:
+    - https://attack.mitre.org/techniques/T1003/001/
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.credential-access
+    - attack.t1003.001
+logsource:
+    category: file_event
+    product: windows
+# Test case:
+#   Open Task Manager -> Details tab -> right-click lsass.exe ->
+#   "Create dump file" (writes a file with "lsass" in the name via
+#   Taskmgr.exe, typically to %LOCALAPPDATA%\Temp)
+detection:
+    selection:
+        Image|endswith: '\Taskmgr.exe'
+        TargetFilename|contains: 'lsass'
+    condition: selection
+falsepositives:
+    - Administrators intentionally creating a full memory dump of
+      lsass.exe via Task Manager for legitimate troubleshooting
+      (rare, and should still be validated with the admin)
+    - Automation or remote support tooling that scripts Task Manager
+      actions on a user's behalf
+level: critical

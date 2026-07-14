@@ -108,3 +108,17 @@ report. Exit code is 0 if the rule passes every check, 1 if any check
 fails, 2 on a usage or parse error. It does not check the severity
 *justification* prose or the tactic tag — use the checklist above for
 those.
+
+## References
+
+When writing or reviewing a rule, consult:
+
+- `references/example-rules/` - well-formatted examples to follow
+  (`lsass_memory_access.yml` demonstrates every standard above in one
+  file)
+- `references/severity-guide.md` - when to use low/medium/high/critical,
+  grounded in this project's actual rules
+- `references/false-positive-patterns.md` - recurring false positive
+  categories (backup software, EDR/AV, legacy protocols, admin
+  troubleshooting, volume noise) to check against before writing
+  `falsepositives:`
