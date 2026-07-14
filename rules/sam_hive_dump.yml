@@ -1,0 +1,54 @@
+title: SAM Hive Dump via reg.exe save or Shadow Copy Access
+id: 7787b51c-2431-4320-8051-3e35992fbabc
+status: experimental
+description: |
+    Detects common techniques for dumping the SAM, SYSTEM, or SECURITY
+    registry hives to extract local account password hashes offline
+    (e.g. via Mimikatz lsadump::sam, pwdump-family tools, or manual
+    extraction). Covers reg.exe save of the live hives, esentutl copying
+    them out of a Volume Shadow Copy, and direct file access to a hive
+    through a shadow copy device path.
+references:
+    - https://attack.mitre.org/techniques/T1003/002/
+author: Detection Engineering Team
+date: 2026-07-13
+tags:
+    - attack.credential-access
+    - attack.t1003.002
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_reg_save_action:
+        Image|endswith: '\reg.exe'
+        CommandLine|contains: 'save'
+    selection_reg_save_target:
+        CommandLine|contains:
+            - 'hklm\sam'
+            - 'hklm\system'
+            - 'hklm\security'
+    selection_esentutl:
+        Image|endswith: '\esentutl.exe'
+        CommandLine|contains|all:
+            - '/y'
+            - '/vss'
+        CommandLine|contains:
+            - '\config\sam'
+            - '\config\system'
+            - '\config\security'
+    selection_shadow_copy_path:
+        CommandLine|contains: 'HarddiskVolumeShadowCopy'
+    selection_shadow_copy_hive_target:
+        CommandLine|contains:
+            - '\config\sam'
+            - '\config\system'
+            - '\config\security'
+    filter_known_backup:
+        Image|startswith:
+            - 'C:\Program Files\Windows Server Backup\'
+            - 'C:\Program Files\Microsoft Monitoring Agent\'
+    condition: "((selection_reg_save_action and selection_reg_save_target) or selection_esentutl or (selection_shadow_copy_path and selection_shadow_copy_hive_target)) and not filter_known_backup"
+falsepositives:
+    - Legitimate system backup or imaging software saving registry hives
+    - System administrators manually backing up hives for migration or recovery
+level: high
