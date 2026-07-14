@@ -609,3 +609,41 @@ Base skill + specialized extensions:
 
 **Pros:** Avoids repetition, specialized
 **Cons:** More complex
+
+## Session Notes: 5.6 Third-Party Skills (Covered Conceptually)
+
+Hands-on installation of the Trail of Bits yara-authoring skill was blocked
+by a confirmed Claude Code bug on Windows (GitHub issue #42135): the
+plugin marketplace's git-cloning logic fails to resolve the git binary
+("Command 'git' not found or is in an unsafe location") even though git
+works correctly everywhere else in the same session. This is unresolved
+upstream, not a local misconfiguration.
+
+Covered conceptually instead. Key takeaway: **skills can execute real code
+on your system** — scripts, hooks (which run automatically, e.g. on every
+session start), and even full MCP servers with network/file access. Before
+installing any third-party skill:
+
+1. Check source reputation (known publisher, real repo activity, clear license)
+2. Read the actual SKILL.md (legitimate purpose, no credential requests, no obfuscation)
+3. Audit any bundled scripts (unknown network calls, file access outside project, encoded code)
+4. Check hooks especially carefully — highest risk since they run automatically
+5. Review any bundled MCP servers with the same scrutiny as Module 3
+6. Test in isolation first if uncertain
+
+| Risk Level | Criteria | Action |
+|---|---|---|
+| Low | Known publisher, no scripts/hooks | Install freely |
+| Medium | Known publisher, has scripts | Review scripts, then install |
+| High | Unknown publisher, has hooks/MCP servers | Full audit first |
+| Critical | Obfuscated code, credential requests | Do not install |
+
+## Session Notes: 5.7 Skill Organization Patterns
+
+Three patterns: single comprehensive skill (simple, may over-trigger),
+multiple focused skills (precise, more to maintain), layered skills (base
++ specialized extensions, avoids repetition but more complex).
+
+This project used **Pattern 2** in practice — a single, focused
+`detection-engineering` skill — which was the right scope for what was
+actually needed.
