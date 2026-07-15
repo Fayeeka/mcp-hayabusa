@@ -1,3 +1,44 @@
+# Module 6 Reference: Slash Commands - Repeatable Workflows
+
+## Claude Ecosystem Coverage
+
+| Component | Feature | How We'll Use It |
+|---|---|---|
+| Slash Commands | Core concept | Explicitly invoked workflows with /command |
+| .claude/commands/ | Command location | Where command files live |
+| Command arguments | Parameterization | Passing query and options to commands |
+| MCP + Commands | Integration | Using MCP tools from within commands |
+| Obsidian markdown | Output format | Generating graph-friendly investigation notes |
+
+## Overview
+
+In Module 5, skills activate automatically based on context. Sometimes
+you want explicit control instead — a workflow you trigger deliberately,
+with specific inputs, producing consistent output every time.
+
+Slash commands give you this. Type /query and Claude runs your
+investigation workflow. Type /triage and Claude follows your alert
+handling procedure. The command defines the steps; you control when it runs.
+
+## The Problem
+
+Example scenario: investigating an alert or crafting a new SIEM
+detection query. You need to: run a SIEM query to pull related events,
+analyze results for suspicious patterns, map findings to ATT&CK
+techniques, and document everything for investigation notes. Without a
+command, this is done manually every time.
+
+With a /query command:
+
+```
+/query queries/mimikatz-hunt.spl
+```
+
+Claude reads the query from the file, runs it against your SIEM,
+analyzes results, maps to ATT&CK techniques, generates Obsidian-compatible
+notes with [[T1003.001]] backlinks, and outputs a ready-to-save
+investigation document — same workflow, every time, triggered with one command.
+
 ## 6.1 Commands vs. Skills
 
 | Aspect | Skills | Commands |
