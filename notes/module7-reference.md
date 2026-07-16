@@ -359,3 +359,49 @@ Can reference `$CLAUDE_PROJECT_DIR` in paths:
 This combination gives: prerequisites check on start, sensitive file
 protection, auto-validation of detection rules, completion
 notifications, and cost controls.
+
+## Session Notes: A Real Gap in PostToolUse Feedback
+
+While testing the validation hook (7.3), discovered a genuine
+discrepancy from the course's documented behavior.
+
+**What the course describes:** PostToolUse hooks exiting with code 2
+should feed stderr back to Claude automatically as context — meaning
+Claude should naturally mention validation failures in its next response,
+without being asked.
+
+**What actually happened:** Created rules/test-rule.yml (deliberately
+incomplete — title only). hook-test.log confirmed the hook fired.
+validate-rule.sh correctly detected and reported the missing description
+and missing ATT&CK tag via stderr with exit code 2. However, Claude's
+next conversational response made no mention of any validation failure
+— the errors only surfaced when explicitly asked to check the log and
+re-run the script manually.
+
+**Claude's own honest account (asked directly):** confirmed it did not
+see the stderr feedback automatically in its context. Uncertain whether
+the feedback path isn't surfacing for this setup, or fired but wasn't
+narrated. Either way, exit-2 output should not be assumed to reach
+Claude automatically without verification.
+
+**Practical implication:** the "no manual triggers, no hoping Claude
+remembers" promise of hooks (this module's core premise) doesn't fully
+hold in practice on this setup. A PostToolUse validation hook exists and
+runs correctly, but its findings aren't reliably surfaced to Claude
+without a human explicitly checking. This may be:
+- A platform-specific bug or quirk (Windows / this Claude Code version)
+- A gap between documented and actual hook feedback behavior
+- Something that requires additional configuration not covered in the
+  course material
+
+**Mitigation used:** Claude saved a session memory to proactively
+re-check validate-rule.sh output after future rule edits, rather than
+assuming silence means success — but this is a workaround, not a fix for
+the underlying automation gap. The irony is intentional to note: hooks
+exist specifically to avoid relying on Claude remembering to do
+something, yet the fallback here is Claude remembering to check.
+
+**Takeaway for real-world use:** don't fully trust that hook automation
+is silently working as documented — periodically verify hook output
+directly (log files, manual script re-runs) rather than assuming no
+news is good news.
