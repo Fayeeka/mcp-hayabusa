@@ -180,3 +180,37 @@ note.
 
 Note: Splunk's free license doesn't support API access — browser
 automation could work around this for testing purposes.
+
+## Session Notes: Adapting /query for a Real Environment
+
+Since no live SIEM was available, the /query command was adapted per
+section 6.5's Option 3 (MCP integration) — using the existing Hayabusa
+MCP server (Modules 3-4) as the data source instead of Splunk's REST API:
+
+- The "query file" holds an EVTX path instead of SPL syntax
+- scan_evtx (Module 3) replaces the Splunk API call
+- get_hayabusa_rules (Module 3) cross-references fired rule titles for
+  ATT&CK tags
+- analyze_coverage (Module 4) checks detection coverage for techniques found
+
+This demonstrated section 6.7's "Combining Commands with MCP" pattern
+naturally, since it was built into the command from the start rather
+than added afterward.
+
+**Full loop demonstrated end-to-end:**
+1. Ran /query against the PowerShell sample EVTX
+2. Command generated an Obsidian-formatted investigation note, correctly
+   flagging T1059.001 as an uncovered gap
+3. Asked Claude to write a Sigma rule for the gap — the Module 5
+   detection-engineering skill auto-activated with no prompting,
+   enforcing ATT&CK mapping, justified severity, named false positives
+4. Claude made a good engineering judgment call: rather than duplicating
+   the existing script-block-based rule, it wrote a complementary
+   process-creation-level rule (catching the same technique via a
+   different telemetry source — useful in environments without Script
+   Block Logging enabled)
+5. Re-ran analyze_coverage to confirm the gap closed
+
+This is the payoff of the whole course: MCP (data/actions) + Resources
+(knowledge) + Skills (standards) + Commands (repeatable workflows) all
+composing together into one real, working investigation pipeline.
