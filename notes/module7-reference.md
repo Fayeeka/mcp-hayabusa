@@ -405,3 +405,49 @@ something, yet the fallback here is Claude remembering to check.
 is silently working as documented — periodically verify hook output
 directly (log files, manual script re-runs) rather than assuming no
 news is good news.
+
+## Follow-up: Debug Log Investigation
+
+To dig further, ran a nested, non-interactive Claude Code session with
+debug logging enabled (`claude --debug-file /tmp/claude-debug.log -p
+"..."`) and recreated the invalid-rule write. Repeated this a second
+time with the `hooks` debug category explicitly selected (`-d hooks
+--debug-file ...`) to rule out a filtering gap. Both runs confirmed the
+file write and the PostToolUse hooks firing (matching the earlier
+hook-test.log evidence).
+
+**Finding: the numeric hook exit code is not recorded anywhere in
+`--debug-file` output**, in either run. The only trace of the hooks
+executing is two identical lines immediately after `tool_dispatch_end
+tool=Write`:
+
+```
+[DEBUG] Hook output does not start with {, treating as plain text
+[DEBUG] Hook output does not start with {, treating as plain text
+```
+
+One line per configured PostToolUse hook (log-edit.py,
+validate-rule.sh) — confirming both ran — but no `exitCode=`,
+`PostToolUse`, or `stderr` field logged alongside either line.
+
+**False alarm ruled out:** the log also contains `Registered 0 hooks
+from 0 plugins` and `Hooks: Found 0 total hooks in registry`, which
+looks like the project hooks never loaded. That registry turned out to
+refer to *plugin-supplied* hooks only — a separate subsystem from
+`settings.json` hooks. The log separately confirms
+`.claude/settings.json` is being watched, and the two "plain text"
+lines are direct evidence the project-level hooks did execute.
+
+**Interesting side effect:** in the second nested session, Claude's
+final response proactively flagged the validation caveat unprompted —
+consistent with it having picked up the project memory saved earlier
+about this exact feedback gap, suggesting that memory is being read
+correctly on fresh sessions even though live hook stderr isn't.
+
+**Conclusion:** this build's `--debug-file` does not surface hook exit
+codes at all. The gap isn't just "stderr feedback doesn't always reach
+Claude in conversation" — the exit code isn't observable in the debug
+log either. The only reliable way to see the actual result is to run
+the hook script manually against the file and inspect its exit code
+directly, as done earlier (`missing 'description'...`, confirmed exit
+2).
