@@ -1,0 +1,58 @@
+title: PowerShell Execution with Base64-Encoded Command and Hidden/Bypass Flags
+id: 9f3d6a1e-7b4c-4e2a-8d5f-1a6c3e9b7d24
+status: experimental
+description: |
+    Detects powershell.exe or pwsh.exe invoked with a base64-encoded
+    command (-EncodedCommand / -enc) combined with a window-hiding or
+    execution-policy-bypass flag (-w hidden, -windowstyle hidden,
+    -ep/-executionpolicy bypass, -nop/-noprofile). This combination is
+    a common obfuscation and evasion pattern used by commodity malware
+    loaders and offensive tooling (e.g. Empire, Cobalt Strike
+    PowerShell stagers) to hide the true command content from casual
+    command-line review and avoid interactive prompts/profile scripts
+    that could interfere with execution.
+
+    Severity is high, not critical: requiring both the encoding flag
+    and a hidden/bypass flag together (rather than -enc alone) cuts
+    out most single-flag legitimate usage, and the combination has few
+    routine explanations — but some legitimate deployment tooling
+    (SCCM, Intune, GPO logon scripts) does encode commands to avoid
+    quoting issues while also suppressing the window, so it stops
+    short of critical.
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+    - https://lolbas-project.github.io/lolbas/Binaries/Powershell/
+author: Detection Engineering Team
+date: 2026-07-15
+tags:
+    - attack.execution
+    - attack.defense-evasion
+    - attack.t1059.001
+logsource:
+    category: process_creation
+    product: windows
+# Test case:
+#   powershell.exe -nop -w hidden -ep bypass -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA...
+detection:
+    selection_process:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+    selection_encoded:
+        CommandLine|contains:
+            - '-enc'
+            - '-EncodedCommand'
+    selection_hidden_or_bypass:
+        CommandLine|contains:
+            - '-w hidden'
+            - '-windowstyle hidden'
+            - '-ep bypass'
+            - '-executionpolicy bypass'
+            - '-nop'
+            - '-noprofile'
+    condition: selection_process and selection_encoded and selection_hidden_or_bypass
+falsepositives:
+    - SCCM, Intune, or GPO-deployed logon/remediation scripts that base64-encode commands to avoid quoting issues and suppress the window during silent installs
+    - Scheduled tasks created by legitimate management agents that launch encoded PowerShell with -nop/-w hidden for unattended execution
+    - Third-party RMM tools (e.g. some backup or patch-management agents) that wrap their PowerShell invocations with hidden-window and encoded-command flags by default
+level: high
