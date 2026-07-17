@@ -1,5 +1,7 @@
 # Draft GitHub Issue: PostToolUse hook exit-2 stderr not surfaced to Claude
 
+Filed as https://github.com/anthropics/claude-code/issues/78393
+
 **Status:** draft, not yet submitted.
 
 ---
