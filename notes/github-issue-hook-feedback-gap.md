@@ -2,7 +2,7 @@
 
 Filed as https://github.com/anthropics/claude-code/issues/78393
 
-**Status:** draft, not yet submitted.
+**Status:** filed.
 
 ---
 
