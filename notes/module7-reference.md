@@ -481,3 +481,43 @@ between course-documented behavior and actual Claude Code behavior
 Worth treating course material as a conceptual guide rather than a
 literal, guaranteed-accurate reference — verify against the live schema
 or real behavior before trusting a documented field/setting exists.
+
+## Module 7 Wrap-Up Summary
+
+Built a complete, verified hook system for the mcp-hayabusa project:
+
+| Event | Script | Purpose |
+|---|---|---|
+| SessionStart | check-prereqs.sh | Warns if required tools (jq) are missing |
+| PreToolUse (.*) | check-sensitive.sh | Blocks tool calls touching sensitive paths |
+| PreToolUse (.*) | cost_guard.py | Blocks tool calls once cost hits $20 hard limit |
+| PostToolUse (Edit\|Write) | log-edit.py | Logs every file write/edit for verification |
+| PostToolUse (Edit\|Write) | validate-rule.sh | Validates Sigma rule YAML on save |
+| Stop | PowerShell toast | Desktop notification when a response completes |
+| Stop | cost_guard.py | Logs running cost; warns at $5, blocks at $20 |
+
+**Three real discrepancies discovered and documented this module** (all
+verified through direct testing, not assumption):
+1. PostToolUse exit-2 stderr doesn't reliably reach Claude's context or
+   --debug-file logs — filed as github.com/anthropics/claude-code/issues/78393
+2. SessionStart hook stderr (even on exit 0) doesn't reach Claude's
+   context — only stdout does. Fixed by switching check-prereqs.sh to
+   stdout, verified working after the fix.
+3. costThreshold is not a real settings.json field — the course
+   documents a concept with no corresponding shipped setting. Built
+   real enforcement via cost_guard.py instead.
+
+**Key methodological lesson:** this module's biggest takeaway wasn't
+just "how hooks work" — it was learning to verify hook behavior
+directly (sentinel files, transcript inspection, schema validation)
+rather than trusting documentation or assuming success from silence.
+Every hook in the final system was proven working through direct
+evidence, not just "should work per the docs."
+
+**On the module's core premise** ("no hoping Claude remembers, no
+manual triggers"): mostly holds, with real caveats. The mechanics
+(hooks firing, blocking, running scripts) are genuinely deterministic
+and reliable. But whether feedback from those hooks reaches a human or
+Claude depends on specific exit-code/stream combinations that aren't
+fully documented — worth verifying for any hook where feedback
+visibility matters.
