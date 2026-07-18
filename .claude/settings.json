@@ -35,6 +35,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "command": "if (Get-Module -ListAvailable -Name BurntToast) { Import-Module BurntToast; New-BurntToastNotification -Text 'Claude Code','Claude finished' } else { Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.SystemIcons]::Information; $n.Visible = $true; $n.BalloonTipTitle = 'Claude Code'; $n.BalloonTipText = 'Claude finished'; $n.ShowBalloonTip(5000); Start-Sleep -Seconds 6; $n.Dispose() }"
+          }
+        ]
+      }
     ]
   }
 }
