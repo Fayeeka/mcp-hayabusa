@@ -451,3 +451,33 @@ log either. The only reliable way to see the actual result is to run
 the hook script manually against the file and inspect its exit code
 directly, as done earlier (`missing 'description'...`, confirmed exit
 2).
+
+## Session Notes: costThreshold Is Not a Real Setting
+
+Section 7.7's example config (warningAt/hardLimit under a costThreshold
+key) does not correspond to any real field in the current Claude Code
+settings.json schema — confirmed by attempting to add it and having it
+rejected against the live schema validation. No cost/budget key exists
+in settings.json at all.
+
+This is a documented course concept, not a shipped feature.
+
+**Real solution built instead:** scripts/cost_guard.py, wired into two
+hooks:
+- PreToolUse: estimates session cost from the transcript's token usage
+  against a per-model pricing table, blocking tool calls (exit 2) once
+  a $20 hard limit is reached — an actual enforcement mechanism.
+- Stop: logs running cost every turn to logs/cost-audit.log, and fires
+  a one-time Windows toast notification when cost crosses $5 (warning)
+  and again at $20 (hard limit), deduplicated per session.
+
+Verified against the real session transcript (~$1.89 computed
+correctly) and tested end-to-end with temporarily lowered thresholds to
+confirm both the warning and block actually fire.
+
+**Takeaway:** this is the third genuine discrepancy found this module
+between course-documented behavior and actual Claude Code behavior
+(alongside the PostToolUse and SessionStart stderr-visibility gaps).
+Worth treating course material as a conceptual guide rather than a
+literal, guaranteed-accurate reference — verify against the live schema
+or real behavior before trusting a documented field/setting exists.
