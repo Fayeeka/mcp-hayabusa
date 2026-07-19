@@ -152,3 +152,22 @@ PowerShell/CMD — requires WSL on Windows.
 
 Usage: Claude runs agent-browser commands via bash — logs into a SIEM
 web UI, runs a search, captures/returns results for analysis.
+
+## Session Notes: Section 10.10 (Browser Automation) — Not Attempted
+
+agent-browser (Vercel's CLI tool for AI browser agents) explicitly
+requires WSL on Windows per its own documentation — native PowerShell/
+CMD is not supported. Given this project has no WSL setup and no live
+SIEM to automate against anyway (same gap noted in Module 6), this
+section was covered conceptually rather than attempted:
+
+The pattern: agent-browser logs into a SIEM web interface, executes
+searches, extracts results, and returns them to Claude for analysis —
+useful when a SIEM lacks a good API, or for cloud-console-only
+workflows. It uses a "Snapshot + Refs" approach that's reportedly far
+more context-efficient (up to 93% less) than Playwright MCP for this
+kind of agentic browser automation.
+
+If a real Windows-based purple-team workflow needed this in the
+future, WSL would need to be set up first — a bigger, separate
+infrastructure decision, not something to bolt on casually.
