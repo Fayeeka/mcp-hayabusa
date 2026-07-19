@@ -245,3 +245,48 @@ setup has a real, non-trivial Windows-specific barrier beyond what the
 course documents — a full Rust + MSVC C++ build toolchain, not just a
 pip install. Worth knowing this before committing to it on a
 resource-constrained or Windows-based machine.
+
+## Module 8 Wrap-Up Summary
+
+**Workflow 1 — Threat Intel Processing:** Built and tested /ingest-ti
+against a real Unit 42 report on Screening Serpens (Iran-nexus APT).
+Produced 21 mapped ATT&CK techniques, 23 real IOCs, and an honest
+Atomic Red Team gap analysis (verified against the live GitHub index
+rather than fabricating test IDs for techniques with no existing
+coverage).
+
+**Workflow 2 — Multi-Source Investigation:** Built endpoint-analyst and
+cloud-analyst subagents, ran them in parallel against synthetic
+Windows/Sysmon + Azure AD logs modeling a real technique (session
+cookie theft via Chrome DevTools Protocol, replayed as a pass-the-cookie
+attack). Used plan mode to scope before analyzing, switched to Opus for
+the final correlation step, and produced a full investigation trail
+(endpoint.md, cloud.md, correlation.md) with honest confidence caveats
+and prioritized collection gaps.
+
+**Section 8.5 (LiteLLM/Ollama):** Ollama itself worked cleanly on
+Windows. LiteLLM did not — blocked by a real, undocumented dependency
+chain (Rust toolchain → MSVC C++ Build Tools) beyond what a simple pip
+install suggests. Documented as a genuine environment limitation rather
+than pushed through, given the module's remaining scope.
+
+**Context management:** Checked /context after this entire session's
+work (threat intel analysis, subagent correlation, extensive Node/Rust/
+LiteLLM troubleshooting, VM cleanup) — still at only 14% usage, 82%
+free. Demonstrates that focused subagents and disciplined workflows
+keep even complex, multi-hour sessions well within budget without
+needing to compact or clear.
+
+**Real infrastructure work done this module beyond the course's own
+scope:** upgraded Node 16→24 to fix defuddle, freed ~8GB disk space
+(deleted an unused VM) to make room for local models, debugged a real
+bug in Rust's Windows installer PATH detection, filed away a genuine
+Windows-specific gap in the LiteLLM install path.
+
+**Overall takeaway:** this module's course material assumes a
+relatively clean, modern, likely Unix-like or well-provisioned
+environment. Real-world execution on an older Windows setup surfaced
+several genuine infrastructure gaps not present in the course's happy
+path — consistent with the pattern from Module 7's hook investigation:
+verify, don't assume, and treat course material as a guide rather than
+a guarantee.
