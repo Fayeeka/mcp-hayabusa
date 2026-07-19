@@ -270,3 +270,55 @@ instructions). Only the *activation UI* has moved on since the course was
 written — a good example of why verifying current behavior against actual
 usage (not just documentation) matters, consistent with findings from
 Modules 3, 7, and 8.
+
+## Module 11 Wrap-Up
+
+Built and validated three real security personas end-to-end:
+
+- threat-hunter.md — hypothesis-driven, tested with a real ambiguous
+  scenario (anomalous svc-backup authentication), correctly refused to
+  overclaim, revised confidence appropriately as new evidence (baseline
+  period) was provided, gated containment proposals on evidence strength
+- ir-responder.md — evidence-first, tested with a real EDR/Cobalt Strike
+  scenario, correctly prioritized memory capture and read-only triage
+  over any host-modifying action
+- detection-engineer.md — tested with a real Sigma rule request tied to
+  the Module 10 purple-team exercise (Matanbuchus/msiexec pattern),
+  produced a rule with honest FP analysis and proactively suggested a
+  more durable companion detection
+
+All three converted to Output Styles (YAML frontmatter,
+keep-coding-instructions set appropriately per persona) and to
+PowerShell profile functions (claude-hunter, claude-ir, claude-de).
+
+**Real discrepancy found and documented:** the course's /config picker
+and /output-style command for activating custom styles do not work as
+described on Claude Code v2.1.215 — /output-style was deprecated in
+v2.1.73 and removed in v2.1.91 per Anthropic's own docs; /config's
+picker only lists the 4 built-in styles, not custom file-based ones.
+Real, current, working method: set outputStyle directly in
+~/.claude/settings.json (global) or .claude/settings.local.json
+(project-scoped) — verified working by launching plain `claude` with
+no persona flag and confirming the correct persona activated.
+
+Verified persona composition with the real Module 10 purple-team
+project: claude-ir + /ingest-ti against the real Screening Serpens
+report produced correctly IR-styled output (fact/inference labeling,
+clean IOC tables) — the persona genuinely reshapes existing commands'
+output rather than existing independently.
+
+Verified headless/scripted usage (-p mode with --output-format json) —
+works correctly, returns structured output with full cost/token/timing
+telemetry, confirming the pattern is genuinely usable for automation
+(scheduled hunts, CI-driven checks) as the course describes.
+
+### Consistent with the course's throughline
+
+Another module, another real discrepancy found through direct testing
+rather than assumption — the fourth module in a row to surface one:
+Module 3's .mcp.json vs .claude/settings.json, Module 7's PostToolUse
+feedback gap and the non-existent costThreshold setting, Module 8's
+undocumented LiteLLM dependency chain on Windows (Rust toolchain → MSVC
+C++ Build Tools), and now this module's output-style activation UI.
+Five distinct findings across those four modules. The pattern holds:
+verify directly, document honestly, adapt to the real current behavior.
