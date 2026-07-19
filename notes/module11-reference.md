@@ -203,9 +203,10 @@ Team-shareable: commit .claude/output-styles/ to git.
 When to use flag vs. Output Style:
 - One-command launch per persona → Flag + bash alias
 - Headless/scripted runs (-p mode) → Flag (slash commands unavailable in -p)
-- Switching persona without relaunch flags → Output Style + outputStyle
-  setting (the /config menu does not list custom styles as of v2.1.215)
-- Team-shared default for a project → Output Style + outputStyle setting
+- Persistent default, solo or team-shared → Output Style + outputStyle
+  setting (~/.claude/settings.json for yourself, .claude/settings.json
+  committed to git for the team; the /config menu does not list custom
+  styles as of v2.1.215)
 - Stacking persona with ad-hoc instructions → Flag
 - Quick one-off without a saved file → --append-system-prompt "..."
 
