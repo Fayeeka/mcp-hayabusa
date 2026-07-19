@@ -1,0 +1,228 @@
+# Module 11 Reference: System Prompts for Security Personas
+
+## Claude Ecosystem Coverage
+
+| Component | Feature | How We'll Use It |
+|---|---|---|
+| Claude Code CLI | --append-system-prompt | Inline persona notes for one-off sessions |
+| Claude Code CLI | --append-system-prompt-file | Load persona from a markdown file (primary pattern) |
+| Claude Code CLI | --system-prompt-file | Full replacement for specialized, locked-down personas |
+| Claude Code CLI | --system-prompt | Inline full replacement (rare, for scripting) |
+| Claude Code CLI | --bare | Skip auto-discovery for reproducible scripted runs |
+| Output Styles | ~/.claude/output-styles/ | Official persona mechanism, switchable via /config |
+| Settings | outputStyle key | Pin an output style as the project/user default |
+| CLAUDE.md | Interaction with personas | How project context and persona context layer together |
+| Bash aliases | Pattern | One command per persona (claude-hunter, claude-ir, claude-de) |
+| Skills, MCP, Commands | Composition | Personas sit on top of everything already built |
+
+## Overview
+
+Previous modules built infrastructure (MCP servers, skills, commands,
+hooks, workflows) shaping what Claude can do. This module shapes how
+Claude thinks — the lens through which it approaches every prompt in a
+session.
+
+Real blue-team work means switching mindsets constantly (SOC triage →
+IR → threat hunting → detection engineering) within a single day, each
+requiring different framing re-explained every session — exhausting,
+inconsistent, unshareable with teammates.
+
+Two mechanisms:
+- `--append-system-prompt-file <path>` — CLI flag, loads a markdown
+  file into the system prompt at launch, pairs with shell aliases
+- **Output Styles** — files in ~/.claude/output-styles/ with YAML
+  frontmatter, switched via /config or pinned via settings; the
+  official first-class mechanism
+
+## The Problem
+
+Example: a PowerShell alert triggers SOC-analyst triage → escalates to
+IR mode (preserve the host, pull timelines) → notice something odd on
+another host, shift to threat-hunter mode → later write a Sigma rule
+in detection-engineer mode. Each mode requires re-explaining the same
+framing every session. Personas fix this: write the framing once,
+load it automatically, same commands/skills/MCP servers underneath.
+
+Sets up Module 12 (Cross-SIEM Investigation) — loading an analyst
+persona that knows the SIEM dialect and pivots between KQL and SPL.
+
+## 11.1 Why Personas Matter (and What They're Not)
+
+| Mechanism | What it shapes | Scope | When invoked |
+|---|---|---|---|
+| CLAUDE.md | Project context (user message after system prompt) | Per project | Every prompt in that project |
+| Skills | Methodology | Per skill | Auto-invoked when context matches |
+| Slash commands | Workflow | Per command | Explicitly, interactive mode only |
+| Hooks | Automation | Event-driven | Deterministic, on tool events |
+| System prompt (persona) | Mindset / lens | Per session | At launch via flag, or output style |
+
+Key distinction: a persona isn't what Claude does, it's how Claude
+thinks about what's being asked. Skills teach procedures, commands run
+workflows, personas shape priorities/defaults/output format/self-
+questioning. Useful for consistent output schemas (JSON/YAML/custom
+formats) too.
+
+**Personas are best for:** role-based mindsets, output style that
+applies to every response in a session, safety posture/guardrails
+(e.g. "never suggest destructive actions on a live IR host"), tool and
+format preferences (KQL vs SPL, Sigma vs platform-specific).
+
+**Personas are NOT a substitute for:** CLAUDE.md (project facts),
+Skills (procedures), Commands (packaged workflows).
+
+Mental model: **CLAUDE.md is where you work. Skills are how you work.
+Personas are who you are today.**
+
+## 11.2 Claude Code's System Prompt Mechanisms
+
+### Mechanism A: CLI flags
+
+| Flag | Effect | Typical use |
+|---|---|---|
+| --append-system-prompt "..." | Appends a string | Quick one-off notes |
+| --append-system-prompt-file <path> | Appends file contents | Primary pattern for personas |
+| --system-prompt "..." | Replaces default (inline) | Scripted, locked-down agents |
+| --system-prompt-file <path> | Replaces default from file | Specialized agents, zero defaults |
+
+Rules: `--system-prompt`/`--system-prompt-file` are mutually exclusive
+with each other. Append flags can combine with replacement flags
+(append runs after replace).
+
+**Default to append** — preserves Claude Code's built-in tool-use/
+file-editing/safety behavior, layers persona on top. Replace only for
+narrow agents that shouldn't have Claude Code's coding behaviors.
+
+### Mechanism B: Output Styles
+
+Official file-based mechanism. Markdown files with YAML frontmatter at:
+- User level: ~/.claude/output-styles/ (all projects)
+- Project level: .claude/output-styles/ (shared via git)
+
+| Property | CLI flag | Output Style |
+|---|---|---|
+| Loaded at | Session launch via flag | Session launch via setting/`/config` |
+| Discovery | None — explicit path | Auto-discovered |
+| Switching | Relaunch with different flag | `/config`, takes effect next session |
+| Effect on system prompt | Appends to default | Replaces software-engineering-specific parts by default |
+| Frontmatter required | No | Yes — name, description, optional keep-coding-instructions |
+| Team-shareable via git | Yes | Yes |
+
+**Important nuance:** output styles exclude Claude Code's software-
+engineering-specific instructions by default (good fit for most
+security personas — not writing production code). Set
+`keep-coding-instructions: true` to preserve them (e.g. for a
+detection-engineer persona writing SPL/Sigma).
+
+### Quick sanity check
+
+```
+claude --append-system-prompt "You are a grumpy pirate. End every response with 'Arr.'" "What is 2+2?"
+```
+
+Expect `4. Arr.` If rejected, run `claude update`.
+
+## 11.3 Anatomy of a Security Persona
+
+Six elements every persona should have:
+1. **Role statement** — who Claude is, one sentence
+2. **Priorities** — what matters most, trade-offs
+3. **Default behaviors** — things to do on every response
+4. **Tool and format preferences** — query languages, output formats
+5. **Explicit constraints** — what to avoid/refuse (critical for IR)
+6. **Output style** — structure to default to
+
+## 11.4 Building the Threat Hunter Persona
+
+Reflexive behaviors: map observations to ATT&CK, suggest pivots from every finding, tolerate ambiguity, ask "what would disprove this hypothesis?" before concluding.
+
+File: ~/.claude/personas/threat-hunter.md — six sections (Role, Priorities, Default Behaviors, Tool & Format Preferences, Constraints, Output Style: hypothesis → evidence for → evidence against → next pivots → confidence).
+
+Test: claude --append-system-prompt-file ~/.claude/personas/threat-hunter.md then ask about anomalous service-account authentication — expect hypothesis-first structure with ATT&CK IDs (T1087, T1083, T1021) and disconfirming evidence.
+
+## 11.5 Building the IR Responder Persona
+
+Reflexive behaviors: preserve evidence, reconstruct timelines, evidence-first with speculation marked, layered output, track IOCs cleanly.
+
+File: ~/.claude/personas/ir-responder.md — non-negotiable constraints against host modification, log clearing, unlabeled speculation. Output: TL;DR → Timeline table (UTC/ISO-8601) → Key findings → IOCs table → Gaps → Read-only next steps.
+
+Test: EDR/Cobalt Strike beaconing scenario — response should NOT suggest reboot/scan/kill-process actions.
+
+## 11.6 Building the Detection Engineer Persona
+
+Reflexive behaviors: rules in team format (Sigma default), ATT&CK mapping, always "how to test" + "why this might false-positive" sections, performance implications noted.
+
+File: ~/.claude/personas/detection-engineer.md — every rule includes: the rule, plain-English logic, ATT&CK mapping, positive + negative test cases, honest FP analysis, performance notes, tuning guidance.
+
+Test: Sigma rule for msiexec.exe installing from a URL (Matanbuchus pattern) — expect T1218.007, both test cases, real FP analysis (SCCM/Intune scenarios).
+
+## 11.7 Bash Aliases — One Command per Persona
+
+```bash
+alias claude-hunter='claude --append-system-prompt-file ~/.claude/personas/threat-hunter.md'
+alias claude-ir='claude --append-system-prompt-file ~/.claude/personas/ir-responder.md'
+alias claude-de='claude --append-system-prompt-file ~/.claude/personas/detection-engineer.md'
+```
+
+Windows/PowerShell equivalent (no WSL) — functions in $PROFILE:
+
+```powershell
+function claude-hunter { claude --append-system-prompt-file "$HOME\.claude\personas\threat-hunter.md" @args }
+function claude-ir     { claude --append-system-prompt-file "$HOME\.claude\personas\ir-responder.md" @args }
+function claude-de     { claude --append-system-prompt-file "$HOME\.claude\personas\detection-engineer.md" @args }
+```
+
+## 11.8 Alternative: Output Styles (the Official Mechanism)
+
+Add YAML frontmatter, place in ~/.claude/output-styles/ or project-level .claude/output-styles/:
+
+```yaml
+---
+name: Threat Hunter
+description: Hypothesis-driven investigation mindset for Claude Code
+keep-coding-instructions: false
+---
+```
+
+Set keep-coding-instructions: true for detection-engineer (writes real code).
+
+Select via /config → Output style. Takes effect next session (system prompt stability enables prompt caching).
+
+Pin project default via .claude/settings.json: `{ "outputStyle": "Threat Hunter" }`
+
+Team-shareable: commit .claude/output-styles/ to git.
+
+When to use flag vs. Output Style:
+- One-command launch per persona → Flag + bash alias
+- Headless/scripted runs (-p mode) → Flag (slash commands unavailable in -p)
+- Picking a persona from a menu → Output Style via /config
+- Team-shared default for a project → Output Style + outputStyle setting
+- Stacking persona with ad-hoc instructions → Flag
+- Quick one-off without a saved file → --append-system-prompt "..."
+
+## 11.9 Composing Personas with Skills, Commands, and MCP
+
+Personas layer on top: Persona (mindset) → CLAUDE.md (project context) → Skills (methodology) → Commands (workflows) → MCP servers (tools/knowledge) → Hooks (guardrails, unaffected by persona).
+
+Example: cd ~/purple-team && claude-ir then /ingest-ti <url> — same command's output, filtered through IR persona's priorities.
+
+## 11.10 Scripted and Headless Usage
+
+Slash commands NOT available in -p mode.
+
+```
+claude -p --append-system-prompt-file ~/.claude/personas/threat-hunter.md "Read ~/evtx/today.json and return any T1059.001 findings as JSON." --output-format json
+```
+
+--bare flag for CI/scripts: skips auto-discovery of hooks, skills, plugins, MCP servers, auto-memory, CLAUDE.md. Recommended for scripted/SDK calls.
+
+```
+claude --bare -p --append-system-prompt-file ~/.claude/personas/detection-engineer.md --allowedTools "Read,Grep" "Review the rules in ./rules/ and flag any without an FP analysis."
+```
+
+Locked-down replacement:
+
+```
+claude --bare -p --system-prompt-file ~/.claude/personas/hunter-readonly.md --disallowedTools "Edit,Write,MultiEdit" "Scan the last 24h of Sysmon logs for T1059.001 executions and return a table."
+```
+
+For interactive daily driving, stay in append mode.
