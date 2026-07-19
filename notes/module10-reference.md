@@ -171,3 +171,55 @@ kind of agentic browser automation.
 If a real Windows-based purple-team workflow needed this in the
 future, WSL would need to be set up first — a bigger, separate
 infrastructure decision, not something to bolt on casually.
+
+## Module 10 Wrap-Up: Full Capstone Summary
+
+Built and ran a complete, real end-to-end purple team exercise
+(Screening Serpens / UNC1549) connecting components from across the
+entire course:
+
+- /ingest-ti (adapted from Module 8) extracted 26 distinct ATT&CK
+  techniques from a real Unit 42 threat report
+- atomic-mapper agent researched real Atomic Red Team tests (downloading
+  actual test YAMLs from GitHub), correctly flagging its own uncertainty
+  on one disputed technique ID rather than presenting it as fact, and
+  honestly identifying 2 techniques with no packaged atomic test at all
+- Execution checklist documented (not live-executed — no dedicated lab
+  environment; real EVTX sample data from Modules 3/8 substituted)
+- Hayabusa MCP (Module 3) scanned real substitute telemetry, correctly
+  identifying it only validated ~7% of planned techniques and zero of
+  the three "crown jewel" techniques
+- SIEM validation step adapted (Module 6's pattern) — query staged and
+  documented since no live SIEM is connected
+- Gap analysis produced a genuinely calibrated verdict: "detection
+  tooling is proven; campaign coverage is not"
+- Full documentation package generated: team report (MD, DOCX-ready),
+  leadership deck (MD, PPTX-ready), and a polished HTML visual dashboard
+  artifact
+- A real GitHub tracking issue (#1) opened with 3 labeled, actionable
+  follow-ups, linked back to the exercise record
+- A genuinely working plugin package built (purple-team-plugin/) with
+  real components throughout — including honestly flagging and then
+  fixing a manifest claim that wasn't yet backed by real content
+- Section 10.10 (browser automation) covered conceptually — genuine
+  Windows/WSL platform limitation, not attempted
+
+### The throughline across all 10 modules
+
+Every module surfaced at least one genuine environment limitation or
+real bug (Node version incompatibilities, a confirmed Claude Code hook
+feedback bug filed upstream as issue #78393, a non-existent
+costThreshold setting, LiteLLM's Windows build-toolchain requirement,
+no live SIEM/Azure/lab environment) — and every single one was handled
+the same way: verify directly rather than assume, document honestly
+rather than paper over, and adapt pragmatically rather than force
+through. That discipline, more than any specific tool, is the real
+skill this course built.
+
+### Final artifact count across the course
+- 4 GitHub repositories: sysmon-parser, mcp-hayabusa, complex-analysis, purple-team
+- 1 real upstream bug report filed and confirmed live (anthropics/claude-code#78393)
+- 1 real tracking issue on own work (purple-team#1)
+- Dozens of commits, all with honest, descriptive messages
+- Real DOCX/PPTX/HTML deliverables generated from genuine investigation
+  and exercise data, not placeholder content, throughout Modules 9-10
