@@ -192,14 +192,19 @@ Select via /config → Output style. Takes effect next session (system prompt st
 > ones. See "Session Notes: Output Style Activation" at the end of this
 > document for the working method (set `outputStyle` in a settings file).
 
-Pin project default via .claude/settings.json: `{ "outputStyle": "Threat Hunter" }`
+**Primary activation method** — set the outputStyle key in a settings
+file: `{ "outputStyle": "Threat Hunter" }` in ~/.claude/settings.json for
+a global default, or .claude/settings.local.json for project scope. This
+is what actually works on current versions; treat the /config route above
+as historical.
 
 Team-shareable: commit .claude/output-styles/ to git.
 
 When to use flag vs. Output Style:
 - One-command launch per persona → Flag + bash alias
 - Headless/scripted runs (-p mode) → Flag (slash commands unavailable in -p)
-- Picking a persona from a menu → Output Style via /config
+- Switching persona without relaunch flags → Output Style + outputStyle
+  setting (the /config menu does not list custom styles as of v2.1.215)
 - Team-shared default for a project → Output Style + outputStyle setting
 - Stacking persona with ad-hoc instructions → Flag
 - Quick one-off without a saved file → --append-system-prompt "..."
