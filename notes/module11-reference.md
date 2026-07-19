@@ -187,6 +187,11 @@ Set keep-coding-instructions: true for detection-engineer (writes real code).
 
 Select via /config → Output style. Takes effect next session (system prompt stability enables prompt caching).
 
+> **Superseded on current versions** — as of v2.1.215 the /config picker
+> lists only the built-in styles and does not surface custom file-based
+> ones. See "Session Notes: Output Style Activation" at the end of this
+> document for the working method (set `outputStyle` in a settings file).
+
 Pin project default via .claude/settings.json: `{ "outputStyle": "Threat Hunter" }`
 
 Team-shareable: commit .claude/output-styles/ to git.
@@ -226,3 +231,36 @@ claude --bare -p --system-prompt-file ~/.claude/personas/hunter-readonly.md --di
 ```
 
 For interactive daily driving, stay in append mode.
+
+## Session Notes: Output Style Activation — Real Method vs. Course Instructions
+
+The course describes activating output styles via /config's picker or the
+/output-style command. Neither worked as documented on this Claude Code
+version (v2.1.215):
+
+- /config's "Preferred output style" picker only showed the 4 built-in
+  styles (Default, Proactive, Explanatory, Learning) — custom file-based
+  styles did not appear in the list
+- /output-style <name> returned "Unknown command" — confirmed via
+  Anthropic's official docs: this standalone command was deprecated in
+  v2.1.73 and removed in v2.1.91
+
+**Real, current method:** set the outputStyle key directly in a settings
+file (~/.claude/settings.json for a global default, or
+.claude/settings.local.json for project-scoped):
+
+{
+  "outputStyle": "Threat Hunter"
+}
+
+Verified working: launching plain `claude` (no --append-system-prompt-file
+flag) with this setting in place correctly activated the Threat Hunter
+persona automatically, confirmed by asking "What is your role in this
+session?" — matches the persona's actual content, not a default response.
+
+Takeaway: the underlying Output Style *mechanism* works exactly as the
+course describes (file-based personas, YAML frontmatter, keep-coding-
+instructions). Only the *activation UI* has moved on since the course was
+written — a good example of why verifying current behavior against actual
+usage (not just documentation) matters, consistent with findings from
+Modules 3, 7, and 8.
