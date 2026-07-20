@@ -322,3 +322,13 @@ undocumented LiteLLM dependency chain on Windows (Rust toolchain → MSVC
 C++ Build Tools), and now this module's output-style activation UI.
 Five distinct findings across those four modules. The pattern holds:
 verify directly, document honestly, adapt to the real current behavior.
+
+---
+
+**Verified in Module 12:** `--append-system-prompt-file` is undocumented
+(it doesn't appear in `claude --help`) but genuinely functional —
+confirmed via direct testing. The Module 11 usage above is accurate as
+written; no change needed. See `notes/module12-reference.md` in the
+**aws-correlation** repo for the full finding and the verification lesson
+it prompted. (Not the module12-reference.md in this repo, which references
+the flag only as usage.)
