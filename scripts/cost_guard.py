@@ -19,12 +19,20 @@ HARD_LIMIT = 40.00
 
 # Tools that stay available after HARD_LIMIT is reached.
 #
-# Read is exempt because without it this guard makes itself un-inspectable:
-# once a session is over budget, the block covers the very file you need to
+# These are exempt because without them this guard makes itself un-inspectable:
+# once a session is over budget, the block covers the very files you need to
 # open to understand or adjust the block -- including this one. Diagnosing an
-# overrun is a read-only activity, and reads are cheap relative to the work
-# that causes the overrun in the first place.
-EXEMPT_TOOLS = {"Read"}
+# overrun is read-only work, and reads are cheap relative to what causes the
+# overrun in the first place.
+#
+# Grep and Glob are included because locating a file is part of inspecting it.
+# The Module 12 overrun was resolved by searching the filesystem for stray
+# copies of this script; with only Read exempt, that search would still have
+# been blocked.
+#
+# Editing stays blocked, deliberately. Raising the limit remains a manual step
+# outside the session -- a guard that can lift its own ceiling is not a guard.
+EXEMPT_TOOLS = {"Read", "Grep", "Glob"}
 
 PROJECT_ROOT = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 AUDIT_LOG = os.path.join(PROJECT_ROOT, "logs", "cost-audit.log")
