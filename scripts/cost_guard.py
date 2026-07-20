@@ -3,9 +3,10 @@
 and enforces the thresholds settings.json's costThreshold field cannot
 actually enforce (Claude Code has no native cost-limit setting).
 
-Wired as both a PreToolUse hook (blocks tool calls once HARD_LIMIT is hit)
-and a Stop hook (logs running cost every turn, pops a Windows notification
-once when WARNING_AT / HARD_LIMIT is first crossed each session).
+Wired as both a PreToolUse hook (blocks tool calls once HARD_LIMIT is hit,
+except for the tools in EXEMPT_TOOLS) and a Stop hook (logs running cost every
+turn, pops a Windows notification once when WARNING_AT / HARD_LIMIT is first
+crossed each session).
 """
 import json
 import os
@@ -14,7 +15,16 @@ import sys
 from datetime import datetime, timezone
 
 WARNING_AT = 5.00
-HARD_LIMIT = 20.00
+HARD_LIMIT = 40.00
+
+# Tools that stay available after HARD_LIMIT is reached.
+#
+# Read is exempt because without it this guard makes itself un-inspectable:
+# once a session is over budget, the block covers the very file you need to
+# open to understand or adjust the block -- including this one. Diagnosing an
+# overrun is a read-only activity, and reads are cheap relative to the work
+# that causes the overrun in the first place.
+EXEMPT_TOOLS = {"Read"}
 
 PROJECT_ROOT = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 AUDIT_LOG = os.path.join(PROJECT_ROOT, "logs", "cost-audit.log")
@@ -133,7 +143,8 @@ def main():
     cost = session_cost(data.get("transcript_path"))
 
     if event == "PreToolUse":
-        if cost >= HARD_LIMIT:
+        tool_name = data.get("tool_name", "")
+        if cost >= HARD_LIMIT and tool_name not in EXEMPT_TOOLS:
             print(
                 f"Session cost hard limit reached (${cost:.2f} >= "
                 f"${HARD_LIMIT:.2f}). Tool call blocked.",
